@@ -5,6 +5,6 @@ setup(
         packages=['atom'],
         entry_points=
         {
-            'console_scripts': ['atom = atom.__main__:app']
+            'console_scripts': ['atom = atom.main:app']
         }
      )

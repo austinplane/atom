@@ -1,7 +1,7 @@
 import pickle
 import math
 from datetime import datetime
-from traversal import *
+from .traversal import *
 import pdb
 
 
