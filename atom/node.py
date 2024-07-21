@@ -232,7 +232,7 @@ class Node:
 
 
     def is_inactive(self):
-        return not self.is_completed and not self.is_in_progress()
+        return not self.is_completed() and not self.is_in_progress()
 
 
     def copy(self, children_length=0, parents_length=0):

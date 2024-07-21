@@ -16,5 +16,5 @@ def runner():
     return runner
 
 def test_app_start(runner):
-    result = runner.invoke(app, ['ping'])
+    result = runner.invoke(app)
     assert result.exit_code == 0
