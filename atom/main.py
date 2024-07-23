@@ -1,4 +1,5 @@
 import os
+import json
 import typer
 from rich.console import Console
 import subprocess
@@ -7,7 +8,7 @@ import pickle
 import atexit
 import pdb
 from typing_extensions import Annotated
-from .node import Node
+from .node import Node, import_tree
 from .display import get_node_display, get_tree_string
 
 console = Console()
@@ -343,6 +344,52 @@ def unalias(id: int, name: str):
         typer.echo('Unable to remove alias to node.')
         return
 
+
+@app.command()
+def exprt(path: Annotated[str, typer.Option(help='Path for save file.')] = None):
+    """
+    Export the multitree to json.
+    """
+
+    global state
+    b = state['abs_base']
+    if b is None:
+        typer.echo("No base node found.")
+        return
+
+    if path is not None:
+        dir = os.path.dirname(path)
+        if not os.path.exists(dir):
+            typer.echo('Directory for save file does not exist.')
+            return
+    else:
+        path = '/mnt/d/OneDrive/Documents/atom_tree_bkup.json'
+
+    export = b.export_as_base()
+    with open(path, 'w') as f:
+        json_str = json.dump(export, f, indent=2)
+
+
+@app.command()
+def imprt(path: Annotated[str, typer.Option(help='Path for save file.')] = None):
+    """
+    Import from json to build the multitree.
+    """
+
+    if path is not None:
+        if not os.path.exists(path):
+            typer.echo('Save file does not exist.')
+            return
+    else:
+        path = '/mnt/d/OneDrive/Documents/atom_tree_bkup.json'
+
+    with open(path, 'r') as f:
+        nodes = json.load(f)
+
+    base = import_tree(nodes)
+
+    global state
+    state['abs_base'] = base
 
 
 # @app.command()

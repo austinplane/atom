@@ -3,7 +3,7 @@ import pytest
 import random
 import pdb
 
-from atom.node import Node
+from atom.node import Node, import_tree
 
 def create_tree_base_only():
     return Node('base')
@@ -106,6 +106,7 @@ expected_values_0 = {
         'root_one_child_not_completed': None,
         'only_root_not_completed_in_progress': None,
         'root_one_child_not_completed_in_progress': None,
+        'export_tree': [{'id': 0, 'name': 'base', 'alias': [], 'parents': [], 'children': []},],
         }
 
 # tree base + one root
@@ -140,6 +141,8 @@ expected_values_1 = {
         'root_one_child_not_completed': None,
         'only_root_not_completed_in_progress': [False, False],
         'root_one_child_not_completed_in_progress': None,
+        'export_tree': [{'id': 0, 'name': 'base', 'alias': [], 'parents': [], 'children': [1]},
+                        {'id': 1, 'name': 'rootA', 'alias': [], 'parents': [0], 'children': []}],
         }
 
 # tree base + two root
@@ -174,6 +177,9 @@ expected_values_2 = {
         'root_one_child_not_completed': None,
         'only_root_not_completed_in_progress': [False, False, False],
         'root_one_child_not_completed_in_progress': None,
+        'export_tree': [{'id': 0, 'name': 'base', 'alias': [], 'parents': [], 'children': [1, 2]},
+                        {'id': 1, 'name': 'rootA', 'alias': [], 'parents': [0], 'children': []},
+                        {'id': 2, 'name': 'rootB', 'alias': [], 'parents': [0], 'children': []}],
         }
 
 # tree base + one root + one child
@@ -208,6 +214,9 @@ expected_values_3 = {
         'root_one_child_not_completed': [False, False, False],
         'only_root_not_completed_in_progress': [False, False, False],
         'root_one_child_not_completed_in_progress': [False, False, False],
+        'export_tree': [{'id': 0, 'name': 'base', 'alias': [], 'parents': [], 'children': [1]},
+                        {'id': 1, 'name': 'rootA', 'alias': [], 'parents': [0], 'children': [2]},
+                        {'id': 2, 'name': 'child', 'alias': [], 'parents': [1], 'children': []}],
         }
 
 # tree base + one root + two child
@@ -242,6 +251,10 @@ expected_values_4 = {
         'root_one_child_not_completed': [False, False, False, True],
         'only_root_not_completed_in_progress': [False, False, False, False],
         'root_one_child_not_completed_in_progress': [False, True, False, False],
+        'export_tree': [{'id': 0, 'name': 'base', 'alias': [], 'parents': [], 'children': [1]},
+                        {'id': 1, 'name': 'rootA', 'alias': [], 'parents': [0], 'children': [2, 3]},
+                        {'id': 2, 'name': 'child', 'alias': [], 'parents': [1], 'children': []},
+                        {'id': 3, 'name': 'child', 'alias': [], 'parents': [1], 'children': []}],
         }
 
 # tree base + two root + one child
@@ -276,6 +289,11 @@ expected_values_5 = {
         'root_one_child_not_completed': [False, False, True, False, True],
         'only_root_not_completed_in_progress': [False, False, False, False, False],
         'root_one_child_not_completed_in_progress': [False, False, False, False, False],
+        'export_tree': [{'id': 0, 'name': 'base', 'alias': [], 'parents': [], 'children': [1, 2]},
+                        {'id': 1, 'name': 'rootA', 'alias': [], 'parents': [0], 'children': [3]},
+                        {'id': 3, 'name': 'child', 'alias': [], 'parents': [1], 'children': []},
+                        {'id': 2, 'name': 'rootB', 'alias': [], 'parents': [0], 'children': [4]},
+                        {'id': 4, 'name': 'child', 'alias': [], 'parents': [2], 'children': []}],
         }
 
 # tree base + two root + two child
@@ -310,6 +328,13 @@ expected_values_6 = {
         'root_one_child_not_completed': [False, False, True, False, True, True, True],
         'only_root_not_completed_in_progress': [False, False, False, False, False, False, False],
         'root_one_child_not_completed_in_progress': [False, True, False, False, False, False, False],
+        'export_tree': [{'id': 0, 'name': 'base', 'alias': [], 'parents': [], 'children': [1, 2]},
+                        {'id': 1, 'name': 'rootA', 'alias': [], 'parents': [0], 'children': [3, 4]},
+                        {'id': 3, 'name': 'child', 'alias': [], 'parents': [1], 'children': []},
+                        {'id': 4, 'name': 'child', 'alias': [], 'parents': [1], 'children': []},
+                        {'id': 2, 'name': 'rootB', 'alias': [], 'parents': [0], 'children': [5, 6]},
+                        {'id': 5, 'name': 'child', 'alias': [], 'parents': [2], 'children': []},
+                        {'id': 6, 'name': 'child', 'alias': [], 'parents': [2], 'children': []}],
         }
 
 @pytest.mark.parametrize('tree_setup, expected_values', [
@@ -1073,3 +1098,31 @@ class TestNode:
 
         assert not first_root.time_for_completion() == 61
 
+    def test_export_tree(self, tree_setup, expected_values):
+        base = tree_setup()
+
+        export = base.export_as_base()
+        for i, node in enumerate(export):
+            assert node['id'] == expected_values['export_tree'][i]['id']
+            assert node['name'] == expected_values['export_tree'][i]['name']
+            assert node['alias'] == expected_values['export_tree'][i]['alias']
+            assert node['parents'] == expected_values['export_tree'][i]['parents']
+            assert node['children'] == expected_values['export_tree'][i]['children']
+
+    def test_import_tree(self, tree_setup, expected_values):
+        base = tree_setup()
+
+        export = base.export_as_base()
+        new_base = import_tree(export)
+
+        def traverse(old_node, new_node):
+            assert old_node.id == new_node.id
+            assert old_node.name == new_node.name
+            assert old_node.alias == new_node.alias
+            assert old_node.created == new_node.created
+            assert old_node.completed == new_node.completed
+            
+            for i, child in enumerate(old_node.children):
+                traverse(child, new_node.children[i])
+
+        traverse(base, new_base)

@@ -386,6 +386,18 @@ class Node:
             print(f"Not able to fully remove node {self.id}")
 
 
+    def export_as_base(self):
+        nodes = []
+
+        def traverse(node):
+            nodes.append(node.to_dict())
+            for child in node.children:
+                traverse(child)
+
+        traverse(self)
+        return nodes
+
+
     def __str__(self):
         return f""" 
         ===== Node {self.id} =====
@@ -395,6 +407,41 @@ class Node:
         Completed: {self.completed}
           Parents: {[p.name for p in self.parents]}
          Children: {[c.name for c in self.children]}"""
+
+
+    def to_dict(self):
+        return {
+                'id': self.id,
+                'name': self.name,
+                'alias': self.alias,
+                'created': datetime.isoformat(self.created) if self.created else None,
+                'completed': datetime.isoformat(self.completed) if self.completed else None,
+                'parents': [parent.id for parent in self.parents],
+                'children': [child.id for child in self.children],
+                }
+
+    
+    def data_from_dict(self, data):
+        self.id = data['id']
+        self.alias = data['alias']
+        self.created = datetime.fromisoformat(data['created']) if data['created'] else None
+        self.completed = datetime.fromisoformat(data['completed']) if data['completed'] else None
+
+    def connections_from_dict(self, data, nodes):
+        for node in nodes:
+            if node.id in data['children']:
+                self.try_link_child(node)
+
+def import_tree(node_data: list):
+    node_data.sort(key=lambda x: x['id'])
+
+    nodes = [Node(node['name']) for node in node_data]
+    for i, node in enumerate(nodes):
+        node.data_from_dict(node_data[i])
+    for i, node in enumerate(nodes):
+        node.connections_from_dict(node_data[i], nodes)
+
+    return nodes[0]
 
 
 if __name__ == '__main__':
