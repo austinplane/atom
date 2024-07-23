@@ -33,8 +33,6 @@ def get_node_display(node):
     return checkbox + space + name + space + id
 
 def get_tree_string(node):
-    root = node.get_tree()
-
     def traverse(node, stack, sb):
         indents = []
         size = len(stack)
@@ -66,7 +64,7 @@ def get_tree_string(node):
             traverse(node.children[-1], stack + [False], sb)
     
     sb = []
-    traverse(root, [], sb)
+    traverse(node, [], sb)
 
     combined = Text()
     for s in sb:

@@ -70,6 +70,14 @@ class Node:
         return True
 
 
+    def try_remove_alias(self, alias):
+        if alias not in self.alias:
+            print("Node does not have this alias.")
+            return False
+        self.alias.remove(alias)
+        return True
+
+
     def has_parents(self):
         return len(self.parents) > 0
 
@@ -365,6 +373,17 @@ class Node:
         self.children.remove(child)
         child.parents.remove(self)
         return True
+
+
+    def remove_node(self):
+        for parent in self.parents:
+            parent.try_unlink_child(self)
+
+        for child in self.children:
+            self.try_unlink_child(child)
+
+        if len(self.parents) > 0 or len(self.children) > 0:
+            print(f"Not able to fully remove node {self.id}")
 
 
     def __str__(self):
