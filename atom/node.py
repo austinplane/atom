@@ -13,6 +13,7 @@ class Node:
         self.alias = []
         self.created = datetime.now()
         self.completed = None #timestamp, not a boolean
+        self.est_time_to_complete = 0
         self.children = []
         self.parents = []
 
@@ -228,6 +229,32 @@ class Node:
 
         time = self.completed - self.created
         return time.total_seconds() / 60
+
+
+    def est_time_for_completion(self):
+        if self.is_leaf():
+            if self.est_time_to_complete == 0:
+                print("Node needs an estimated time. Current estimated time = 0.")
+                return 0
+
+            return self.est_time_to_complete
+
+        estimate = 0
+        full_estimate = True
+        nodes_without_estimate = []
+        def callback(node, _):
+            global estimate, full_estimate
+            if not node.is_leaf(): return
+            if node.est_time_to_complete == 0:
+                full_estimate = False
+                nodes_without_estimate.append(node.id)
+                return
+            estimate += node.est_time_to_complete
+
+        traverse_descendants(self, callback)
+        if not full_estimate:
+            print(f'Leaves {nodes_without_estimate} do not have estimated times. Estimate may not be accurate.')
+        print(f'Estimated time for this node: {estimate} hrs')
 
 
     def is_in_progress(self):

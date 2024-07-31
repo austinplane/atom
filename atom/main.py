@@ -231,6 +231,36 @@ def incomplete(id: int):
 
 
 @app.command()
+def set_estimate(est: float, id: Annotated[int, typer.Option(help='ID of the node.')] = None):
+    """
+    Sets the estimated time in hours to complete the node.
+    """
+    if id and id <= 0:
+        typer.echo('ID must be a positive integer.')
+        return
+
+    if est <= 0:
+        typer.echo('Estimate must be greater than 0.')
+        return
+
+    global state
+    b = state['rel_base'] if state['rel_base'] else state['abs_base']
+    if b is None:
+        typer.echo("No base node found.")
+        return
+
+    if id is not None:
+        node = b.get_by_id(id)
+    else:
+        node = b
+
+    if not node.is_leaf():
+        typer.echo("Can only set estimated times for leaf nodes.")
+        return
+    node.est_time_to_complete = est
+
+
+@app.command()
 def tree(id: Annotated[int, typer.Option(help='ID of tree root.')] = None):
     """
     Displays a tree rooted at the node id.

@@ -1,6 +1,7 @@
 from rich.text import Text
 
 accent = "cyan"
+time_accent = "yellow"
 
 indents_lookup = {
         "blank": Text("    "),
@@ -21,6 +22,11 @@ def get_node_display(node):
     else:
         id = Text(f'({node.id}:{node.alias[0]})')
     id.stylize(accent)
+
+    if node.is_leaf():
+        time = Text(f' {node.est_time_to_complete} hrs')
+        time.stylize(time_accent)
+        id += time
 
     name = Text(node.name)
 
