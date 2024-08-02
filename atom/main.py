@@ -7,6 +7,7 @@ from datetime import datetime
 import pickle
 import atexit
 import pdb
+from typing import List
 from typing_extensions import Annotated
 from .node import Node, import_tree
 from .display import get_node_display, get_tree_string
@@ -191,6 +192,53 @@ def unlink(parent_id: int, child_id: int):
 
 
 @app.command()
+def reparent(child_ids: List[int],
+             parent_id: Annotated[int, typer.Option(help='ID of the parent node.')] = None):
+    """
+    Reparents child ids to parent id (default = current root).
+    Child nodes must have only one parent.
+    """
+    if parent_id and parent_id <= 0:
+        typer.echo('Parent ID must be a positive integer.')
+        return
+
+    if child_ids is None or len(child_ids) == 0:
+        typer.echo('Child ID list cannot be empty.')
+
+    global state
+    b = state['rel_base'] if state['rel_base'] else state['abs_base']
+    if b is None:
+        typer.echo("No base node found.")
+        return
+
+    child_nodes = []
+    for id in child_ids:
+        if id <= 0:
+            typer.echo('Each child ID must be a positive integer.')
+            return
+        node = b.get_by_id(id)
+        if not node:
+            typer.echo(f'Node {id} could not be found!')
+            return
+        if len(node.parents) > 1:
+            typer.echo(f'Child node {id} cannot have more than one parent!')
+        child_nodes.append(node)
+
+    parent = b
+    if parent_id:
+        parent = b.get_by_id(parent_id)
+        if not parent:
+            typer.echo(f'Parent node {parent_id} could not be found!')
+
+    for child in child_nodes:
+        prev_parent = child.parents[0]
+        prev_parent.try_unlink_child(child)
+        parent.try_link_child(child)
+
+
+
+
+@app.command()
 def complete(id: int):
     """
     Marks the current node as completed.
@@ -207,7 +255,7 @@ def complete(id: int):
         typer.echo(f"Node {id} does not exist.")
         return
 
-    node.mark_state(datetime.now)
+    node.mark_state(datetime.now())
 
 
 @app.command()
@@ -233,7 +281,7 @@ def incomplete(id: int):
 @app.command()
 def set_estimate(est: float, id: Annotated[int, typer.Option(help='ID of the node.')] = None):
     """
-    Sets the estimated time in hours to complete the node.
+    Sets the estimated time in minutes to complete the node.
     """
     if id and id <= 0:
         typer.echo('ID must be a positive integer.')
@@ -259,9 +307,39 @@ def set_estimate(est: float, id: Annotated[int, typer.Option(help='ID of the nod
         return
     node.est_time_to_complete = est
 
+@app.command()
+def get_estimate(id: Annotated[int, typer.Option(help='ID of the node.')] = None):
+    """
+    Gets the estimated time in minutes to complete the node.
+    """
+    if id and id <= 0:
+        typer.echo('ID must be a positive integer.')
+        return
+
+    global state
+    b = state['rel_base'] if state['rel_base'] else state['abs_base']
+    if b is None:
+        typer.echo("No base node found.")
+        return
+
+    if id is not None:
+        node = b.get_by_id(id)
+    else:
+        node = b
+
+    time, is_complete, missing_nodes = node.est_time_for_completion()
+    print(f'Estimated time to complete node: {time} mins.')
+
+    if not is_complete:
+        if node.is_leaf():
+            print(f"Please set this leaf node's estimated time using set-estimate")
+        else:
+            print(f"Est. time for nodes {missing_nodes} is missing.")
+
 
 @app.command()
-def tree(id: Annotated[int, typer.Option(help='ID of tree root.')] = None):
+def tree(id: Annotated[int, typer.Option(help='ID of tree root.')] = None,
+         show_time: Annotated[bool, typer.Option(help='show est. times for each node.')] = False):
     """
     Displays a tree rooted at the node id.
     """
@@ -287,7 +365,7 @@ def tree(id: Annotated[int, typer.Option(help='ID of tree root.')] = None):
 
     #If id is not given, display the tree from the currently checked out node
     if id is None:
-        console.print(get_tree_string(b))
+        console.print(get_tree_string(b, show_time))
         return
 
     #Display the tree from an arbitrary root (except 0)
@@ -296,7 +374,7 @@ def tree(id: Annotated[int, typer.Option(help='ID of tree root.')] = None):
         typer.echo(f"Node {id} does not exist.")
         return
 
-    console.print(get_tree_string(node))
+    console.print(get_tree_string(node, show_time))
 
 
 @app.command()
@@ -376,7 +454,7 @@ def unalias(id: int, name: str):
 
 
 @app.command()
-def exprt(path: Annotated[str, typer.Option(help='Path for save file.')] = None):
+def save(path: Annotated[str, typer.Option(help='Path for save file.')] = None):
     """
     Export the multitree to json.
     """
@@ -401,7 +479,7 @@ def exprt(path: Annotated[str, typer.Option(help='Path for save file.')] = None)
 
 
 @app.command()
-def imprt(path: Annotated[str, typer.Option(help='Path for save file.')] = None):
+def load(path: Annotated[str, typer.Option(help='Path for save file.')] = None):
     """
     Import from json to build the multitree.
     """

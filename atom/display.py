@@ -16,15 +16,19 @@ def get_checkbox(node):
     if node.is_in_progress(): return '[~]'
     if node.is_inactive(): return '[ ]'
 
-def get_node_display(node):
+def get_node_display(node, show_time=False):
     if len(node.alias) == 0:
         id = Text(f'({node.id})')
     else:
         id = Text(f'({node.id}:{node.alias[0]})')
     id.stylize(accent)
 
-    if node.is_leaf():
-        time = Text(f' {node.est_time_to_complete} hrs')
+    if show_time:
+        time, is_complete, nodes_missing = node.est_time_for_completion()
+        if not is_complete:
+            time = '?'
+
+        time = Text(f' {time} mins')
         time.stylize(time_accent)
         id += time
 
@@ -38,7 +42,7 @@ def get_node_display(node):
 
     return checkbox + space + name + space + id
 
-def get_tree_string(node):
+def get_tree_string(node, show_time=False):
     def traverse(node, stack, sb):
         indents = []
         size = len(stack)
@@ -61,7 +65,7 @@ def get_tree_string(node):
         for i in indents:
             sb.append(i)
 
-        sb.append(get_node_display(node))
+        sb.append(get_node_display(node, show_time))
         sb.append(indents_lookup["newline"])
 
         if node.num_children() > 0:

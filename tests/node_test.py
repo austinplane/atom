@@ -107,6 +107,9 @@ expected_values_0 = {
         'only_root_not_completed_in_progress': None,
         'root_one_child_not_completed_in_progress': None,
         'export_tree': [{'id': 0, 'name': 'base', 'alias': [], 'parents': [], 'children': []},],
+        'est_time_fn_negative': None,
+        'est_time_fn_positive': None,
+        'est_time_fn_positive_all': None,
         }
 
 # tree base + one root
@@ -143,6 +146,9 @@ expected_values_1 = {
         'root_one_child_not_completed_in_progress': None,
         'export_tree': [{'id': 0, 'name': 'base', 'alias': [], 'parents': [], 'children': [1]},
                         {'id': 1, 'name': 'rootA', 'alias': [], 'parents': [0], 'children': []}],
+        'est_time_fn_negative': (0, False, [1]),
+        'est_time_fn_positive': None,
+        'est_time_fn_positive_all': None,
         }
 
 # tree base + two root
@@ -180,6 +186,9 @@ expected_values_2 = {
         'export_tree': [{'id': 0, 'name': 'base', 'alias': [], 'parents': [], 'children': [1, 2]},
                         {'id': 1, 'name': 'rootA', 'alias': [], 'parents': [0], 'children': []},
                         {'id': 2, 'name': 'rootB', 'alias': [], 'parents': [0], 'children': []}],
+        'est_time_fn_negative': (0, False, [1]),
+        'est_time_fn_positive': None,
+        'est_time_fn_positive_all': None,
         }
 
 # tree base + one root + one child
@@ -217,6 +226,9 @@ expected_values_3 = {
         'export_tree': [{'id': 0, 'name': 'base', 'alias': [], 'parents': [], 'children': [1]},
                         {'id': 1, 'name': 'rootA', 'alias': [], 'parents': [0], 'children': [2]},
                         {'id': 2, 'name': 'child', 'alias': [], 'parents': [1], 'children': []}],
+        'est_time_fn_negative': (0, False, [2]),
+        'est_time_fn_positive': (5, True, []),
+        'est_time_fn_positive_all': (5, True, []),
         }
 
 # tree base + one root + two child
@@ -255,6 +267,9 @@ expected_values_4 = {
                         {'id': 1, 'name': 'rootA', 'alias': [], 'parents': [0], 'children': [2, 3]},
                         {'id': 2, 'name': 'child', 'alias': [], 'parents': [1], 'children': []},
                         {'id': 3, 'name': 'child', 'alias': [], 'parents': [1], 'children': []}],
+        'est_time_fn_negative': (0, False, [2, 3]),
+        'est_time_fn_positive': (5, False, [3]),
+        'est_time_fn_positive_all': (10, True, []),
         }
 
 # tree base + two root + one child
@@ -294,6 +309,9 @@ expected_values_5 = {
                         {'id': 3, 'name': 'child', 'alias': [], 'parents': [1], 'children': []},
                         {'id': 2, 'name': 'rootB', 'alias': [], 'parents': [0], 'children': [4]},
                         {'id': 4, 'name': 'child', 'alias': [], 'parents': [2], 'children': []}],
+        'est_time_fn_negative': (0, False, [3]),
+        'est_time_fn_positive': (5, True, []),
+        'est_time_fn_positive_all': (5, True, []),
         }
 
 # tree base + two root + two child
@@ -335,6 +353,9 @@ expected_values_6 = {
                         {'id': 2, 'name': 'rootB', 'alias': [], 'parents': [0], 'children': [5, 6]},
                         {'id': 5, 'name': 'child', 'alias': [], 'parents': [2], 'children': []},
                         {'id': 6, 'name': 'child', 'alias': [], 'parents': [2], 'children': []}],
+        'est_time_fn_negative': (0, False, [3, 4]),
+        'est_time_fn_positive': (5, False, [4]),
+        'est_time_fn_positive_all': (10, True, []),
         }
 
 @pytest.mark.parametrize('tree_setup, expected_values', [
@@ -1126,3 +1147,52 @@ class TestNode:
                 traverse(child, new_node.children[i])
 
         traverse(base, new_base)
+
+    def test_est_time_negative(self, tree_setup, expected_values):
+        base: Node = tree_setup()
+
+        if not base.has_children(): return
+
+        first_root: Node = base.children[0]
+        assert first_root.est_time_to_complete == 0
+
+    def test_est_time_positive(self, tree_setup, expected_values):
+        base: Node = tree_setup()
+
+        if not base.has_children(): return
+
+        first_root: Node = base.children[0]
+        first_root.est_time_to_complete = 1
+        assert first_root.est_time_to_complete == 1
+
+    def test_est_time_fn_negative(self, tree_setup, expected_values):
+        base: Node = tree_setup()
+
+        if not base.has_children(): return
+
+        first_root: Node = base.children[0]
+        assert first_root.est_time_for_completion() == expected_values['est_time_fn_negative']
+
+    def test_est_time_fn_positive(self, tree_setup, expected_values):
+        base: Node = tree_setup()
+
+        if not base.has_children(): return
+        first_root: Node = base.children[0]
+        if not first_root.has_children(): return
+        first_child: Node = first_root.children[0]
+        first_child.est_time_to_complete = 5
+
+        assert first_root.est_time_for_completion() == expected_values['est_time_fn_positive']
+
+    def test_est_time_fn_positive_all(self, tree_setup, expected_values):
+        base: Node = tree_setup()
+
+        if not base.has_children(): return
+        first_root: Node = base.children[0]
+        if not first_root.has_children(): return
+        first_child: Node = first_root.children[0]
+        first_child.est_time_to_complete = 5
+        if first_root.num_children() > 1:
+            first_root.children[1].est_time_to_complete = 5
+
+        assert first_root.est_time_for_completion() == expected_values['est_time_fn_positive_all']

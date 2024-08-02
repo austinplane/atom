@@ -233,17 +233,14 @@ class Node:
 
     def est_time_for_completion(self):
         if self.is_leaf():
-            if self.est_time_to_complete == 0:
-                print("Node needs an estimated time. Current estimated time = 0.")
-                return 0
-
-            return self.est_time_to_complete
+            full_estimate = self.est_time_to_complete != 0
+            return self.est_time_to_complete, full_estimate, [] if full_estimate else [self.id]
 
         estimate = 0
         full_estimate = True
         nodes_without_estimate = []
         def callback(node, _):
-            global estimate, full_estimate
+            nonlocal estimate, full_estimate
             if not node.is_leaf(): return
             if node.est_time_to_complete == 0:
                 full_estimate = False
@@ -252,9 +249,8 @@ class Node:
             estimate += node.est_time_to_complete
 
         traverse_descendants(self, callback)
-        if not full_estimate:
-            print(f'Leaves {nodes_without_estimate} do not have estimated times. Estimate may not be accurate.')
-        print(f'Estimated time for this node: {estimate} hrs')
+
+        return estimate, full_estimate, nodes_without_estimate
 
 
     def is_in_progress(self):
@@ -441,8 +437,8 @@ class Node:
                 'id': self.id,
                 'name': self.name,
                 'alias': self.alias,
-                'created': datetime.isoformat(self.created) if self.created else None,
-                'completed': datetime.isoformat(self.completed) if self.completed else None,
+                'created': self.created.isoformat() if self.created else None,
+                'completed': self.completed.isoformat() if self.completed else None,
                 'parents': [parent.id for parent in self.parents],
                 'children': [child.id for child in self.children],
                 }
