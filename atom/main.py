@@ -9,8 +9,12 @@ import atexit
 import pdb
 from typing import List
 from typing_extensions import Annotated
+from enum import Enum
 from .node import Node, import_tree
 from .display import get_node_display, get_tree_string
+
+class Order_Type(str, Enum):
+    TIME = 'time'
 
 console = Console()
 app = typer.Typer()
@@ -19,6 +23,7 @@ pickle_path = os.path.expanduser('~/code/atom/tree.pkl')
 state = {
         'abs_base': None,
         'rel_base': None,
+        'archive': None,
         }
 
 def change_pickle_path(path):
@@ -91,6 +96,7 @@ def checkout(id: int):
     node = b.get_by_id(id)
     if node is None:
         typer.echo(f"Node {id} does not exist.")
+        return
 
     state['rel_base'] = node
     typer.echo(f'\nNode {id} is now root.\n')
@@ -104,6 +110,26 @@ def base():
     global state
     state['rel_base'] = None
     typer.echo('\nRoot reset to base node.\n')
+
+
+@app.command()
+def up():
+    """
+    Checks out the (first) parent of the current root node.
+    """
+
+    global state
+    b = state['rel_base'] if state['rel_base'] else state['abs_base']
+    if b is None:
+        typer.echo("No base node found.")
+        return
+
+    id = b.id
+    if b.has_parents():
+        state['rel_base'] = b.parents[0]
+        id = b.parents[0].id
+
+    typer.echo(f'\nNode {id} is now root.\n')
     
 
 @app.command()
@@ -236,8 +262,6 @@ def reparent(child_ids: List[int],
         parent.try_link_child(child)
 
 
-
-
 @app.command()
 def complete(id: int):
     """
@@ -338,8 +362,29 @@ def get_estimate(id: Annotated[int, typer.Option(help='ID of the node.')] = None
 
 
 @app.command()
+def order(type: Order_Type):
+    """
+    Orders leaf nodes by the passed parameter type.
+    """
+    global state
+    b = state['rel_base'] if state['rel_base'] else state['abs_base']
+    if b is None:
+        typer.echo("No base node found.")
+        return
+
+    nodes = b.descendants()
+    nodes = [node for node in nodes if 
+             (node.is_leaf() and node.est_time_to_complete != 0 and not node.is_completed())]
+
+    if type is Order_Type.TIME:
+        nodes.sort(key=lambda x: x.est_time_to_complete)
+        for node in nodes:
+            console.print(get_node_display(node, True))
+
+
+@app.command()
 def tree(id: Annotated[int, typer.Option(help='ID of tree root.')] = None,
-         show_time: Annotated[bool, typer.Option(help='show est. times for each node.')] = False):
+         time: Annotated[bool, typer.Option(help='show est. times for each node.')] = False):
     """
     Displays a tree rooted at the node id.
     """
@@ -365,7 +410,7 @@ def tree(id: Annotated[int, typer.Option(help='ID of tree root.')] = None,
 
     #If id is not given, display the tree from the currently checked out node
     if id is None:
-        console.print(get_tree_string(b, show_time))
+        console.print(get_tree_string(b, time))
         return
 
     #Display the tree from an arbitrary root (except 0)
@@ -374,7 +419,7 @@ def tree(id: Annotated[int, typer.Option(help='ID of tree root.')] = None,
         typer.echo(f"Node {id} does not exist.")
         return
 
-    console.print(get_tree_string(node, show_time))
+    console.print(get_tree_string(node, time))
 
 
 @app.command()
@@ -465,6 +510,10 @@ def save(path: Annotated[str, typer.Option(help='Path for save file.')] = None):
         typer.echo("No base node found.")
         return
 
+    a = state['archive'] if 'archive' in state else None
+    if a is None:
+        typer.echo("No archive node found. Continuing with export.")
+
     if path is not None:
         dir = os.path.dirname(path)
         if not os.path.exists(dir):
@@ -473,7 +522,13 @@ def save(path: Annotated[str, typer.Option(help='Path for save file.')] = None):
     else:
         path = '/mnt/d/OneDrive/Documents/atom_tree_bkup.json'
 
-    export = b.export_as_base()
+    main = b.export_as_base()
+    archive = a.export_as_base() if a else None
+    export = {
+            'main': main,
+            'archive': archive
+            }
+
     with open(path, 'w') as f:
         json_str = json.dump(export, f, indent=2)
 
@@ -492,12 +547,98 @@ def load(path: Annotated[str, typer.Option(help='Path for save file.')] = None):
         path = '/mnt/d/OneDrive/Documents/atom_tree_bkup.json'
 
     with open(path, 'r') as f:
-        nodes = json.load(f)
+        imprt = json.load(f)
 
-    base = import_tree(nodes)
+    main = imprt['main']
+    archive = imprt['archive']
+
+    b = import_tree(main)
+    a = import_tree(archive) if archive else None
 
     global state
-    state['abs_base'] = base
+    state = {
+            'abs_base': None,
+            'rel_base': None,
+            'archive': None,
+            }
+    state['abs_base'] = b
+    state['archive'] = a
+
+
+@app.command()
+def archive(id: Annotated[int, typer.Option(help='ID of node to archive.')] = None):
+    global state
+    a = state['archive']
+    if not a:
+        a = Node('archive')
+        state['archive'] = a
+
+    b = state['abs_base']
+    if b is None:
+        typer.echo("No base node found.")
+        return
+
+    node = state['rel_base']
+    if id:
+        if id <= 0:
+            typer.echo('ID must be a positive integer.')
+            return
+        node = b.get_by_id(id)
+
+    if not node:
+        typer.echo(f"Node {id} does not exist.")
+        return
+
+    if not node.is_root():
+        typer.echo(f'Only root nodes can be archived.')
+        return
+        
+    node_copy = node.get_tree()
+    a.try_link_child(node_copy)
+    remove(node.id)
+
+
+@app.command()
+def unarchive(id: int):
+    global state
+    a = state['archive']
+    if not a:
+        typer.echo('No archive base node found.')
+        return
+
+    b = state['abs_base']
+    if b is None:
+        typer.echo("No base node found.")
+        return
+
+    node = a.get_by_id(id)
+
+    if not node:
+        typer.echo(f"Node {id} does not exist.")
+        return
+
+    if not node.is_root():
+        typer.echo(f'Only root nodes can be archived.')
+        return
+        
+    b.try_link_child(node)
+    a.try_unlink_child(node)
+
+
+@app.command()
+def show_archive():
+    global state
+    a = state['archive']
+    if not a:
+        typer.echo('No archive base node found.')
+        return
+
+    typer.echo("\nAvailable root nodes:")
+    for child in a.children:
+        console.print(get_node_display(child))
+    typer.echo("")
+    
+
 
 
 # @app.command()

@@ -429,7 +429,8 @@ class Node:
           Created: {self.created}
         Completed: {self.completed}
           Parents: {[p.name for p in self.parents]}
-         Children: {[c.name for c in self.children]}"""
+         Children: {[c.name for c in self.children]}
+        Est. time: {self.est_time_to_complete}"""
 
 
     def to_dict(self):
@@ -441,6 +442,7 @@ class Node:
                 'completed': self.completed.isoformat() if self.completed else None,
                 'parents': [parent.id for parent in self.parents],
                 'children': [child.id for child in self.children],
+                'est_time': self.est_time_to_complete,
                 }
 
     
@@ -449,6 +451,7 @@ class Node:
         self.alias = data['alias']
         self.created = datetime.fromisoformat(data['created']) if data['created'] else None
         self.completed = datetime.fromisoformat(data['completed']) if data['completed'] else None
+        self.est_time_to_complete = data['est_time']
 
     def connections_from_dict(self, data, nodes):
         for node in nodes:
