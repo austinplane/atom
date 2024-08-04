@@ -24,6 +24,7 @@ state = {
         'abs_base': None,
         'rel_base': None,
         'archive': None,
+        'running': None,
         }
 
 def change_pickle_path(path):
@@ -52,6 +53,10 @@ def callback(ctx: typer.Context):
     else:
         with open(pickle_path, 'rb') as f:
             state = pickle.load(f)
+
+    if state['running'] and ctx.invoked_subcommand != "stop":
+        typer.echo("Must stop current node's timer before invoking other commands!")
+        raise typer.Exit()
 
     if ctx.invoked_subcommand is None:
         b = state['abs_base']
@@ -100,6 +105,7 @@ def checkout(id: int):
 
     state['rel_base'] = node
     typer.echo(f'\nNode {id} is now root.\n')
+    tree()
 
 
 @app.command()
@@ -110,6 +116,7 @@ def base():
     global state
     state['rel_base'] = None
     typer.echo('\nRoot reset to base node.\n')
+    tree()
 
 
 @app.command()
@@ -130,6 +137,7 @@ def up():
         id = b.parents[0].id
 
     typer.echo(f'\nNode {id} is now root.\n')
+    tree()
     
 
 @app.command()
@@ -331,6 +339,7 @@ def set_estimate(est: float, id: Annotated[int, typer.Option(help='ID of the nod
         return
     node.est_time_to_complete = est
 
+
 @app.command()
 def get_estimate(id: Annotated[int, typer.Option(help='ID of the node.')] = None):
     """
@@ -359,6 +368,42 @@ def get_estimate(id: Annotated[int, typer.Option(help='ID of the node.')] = None
             print(f"Please set this leaf node's estimated time using set-estimate")
         else:
             print(f"Est. time for nodes {missing_nodes} is missing.")
+
+
+@app.command()
+def start():
+    """
+    Starts the timer for the current node. The node's timer must be stopped before running other atom commands.
+    """
+    global state
+    b = state['rel_base'] if state['rel_base'] else None
+    if b is None:
+        typer.echo("Check out a node before starting its timer.")
+        return
+
+    if not b.is_leaf():
+        typer.echo("Can only checkout leaf nodes!")
+        return
+
+    b.start()
+    state['running'] = b
+
+
+@app.command()
+def stop():
+    """
+    Stops the timer for the current node.
+    """
+    global state
+    b = state['running']
+    if b is None:
+        typer.echo("No currently running node.")
+        return
+
+    added_time = b.stop()
+    typer.echo(f"Added time: {added_time}")
+    typer.echo(f"Total time: {b.cumul_time}")
+    state['running'] = None
 
 
 @app.command()
@@ -560,6 +605,7 @@ def load(path: Annotated[str, typer.Option(help='Path for save file.')] = None):
             'abs_base': None,
             'rel_base': None,
             'archive': None,
+            'running': None,
             }
     state['abs_base'] = b
     state['archive'] = a

@@ -14,6 +14,8 @@ class Node:
         self.created = datetime.now()
         self.completed = None #timestamp, not a boolean
         self.est_time_to_complete = 0
+        self.cumul_time = 0
+        self.start_time = 0
         self.children = []
         self.parents = []
 
@@ -253,6 +255,17 @@ class Node:
         return estimate, full_estimate, nodes_without_estimate
 
 
+    def start(self):
+        self.start_time = datetime.now()
+
+
+    def stop(self):
+        added_time = (datetime.now() - self.start_time).total_seconds() / 60
+        self.cumul_time += added_time
+        self.start_time = None
+        return added_time
+
+
     def is_in_progress(self):
         if self.is_base() or self.is_completed():
             return False
@@ -272,6 +285,8 @@ class Node:
         node.alias = self.alias
         node.created = self.created
         node.completed = self.completed
+        node.est_time_to_complete = self.est_time_to_complete
+        node.cumul_time = self.cumul_time
         node.children = [0 for _ in range(children_length)]
         node.parents = [0 for _ in range(parents_length)]
         return node
@@ -428,9 +443,10 @@ class Node:
             Alias: {self.alias}
           Created: {self.created}
         Completed: {self.completed}
+        Est. time: {self.est_time_to_complete}
+      Cumul. time: {self.cumul_time}
           Parents: {[p.name for p in self.parents]}
-         Children: {[c.name for c in self.children]}
-        Est. time: {self.est_time_to_complete}"""
+         Children: {[c.name for c in self.children]}"""
 
 
     def to_dict(self):
@@ -440,6 +456,7 @@ class Node:
                 'alias': self.alias,
                 'created': self.created.isoformat() if self.created else None,
                 'completed': self.completed.isoformat() if self.completed else None,
+                'cumul_time': self.cumul_time,
                 'parents': [parent.id for parent in self.parents],
                 'children': [child.id for child in self.children],
                 'est_time': self.est_time_to_complete,
@@ -452,6 +469,7 @@ class Node:
         self.created = datetime.fromisoformat(data['created']) if data['created'] else None
         self.completed = datetime.fromisoformat(data['completed']) if data['completed'] else None
         self.est_time_to_complete = data['est_time']
+        self.cumul_time = data['cumul_time']
 
     def connections_from_dict(self, data, nodes):
         for node in nodes:
