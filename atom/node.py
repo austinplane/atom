@@ -236,14 +236,14 @@ class Node:
     def est_time_for_completion(self):
         if self.is_leaf():
             full_estimate = self.est_time_to_complete != 0
-            return self.est_time_to_complete, full_estimate, [] if full_estimate else [self.id]
+            return int(self.est_time_to_complete), full_estimate, [] if full_estimate else [self.id]
 
         estimate = 0
         full_estimate = True
         nodes_without_estimate = []
         def callback(node, _):
             nonlocal estimate, full_estimate
-            if not node.is_leaf(): return
+            if not node.is_leaf() or node.is_completed(): return
             if node.est_time_to_complete == 0:
                 full_estimate = False
                 nodes_without_estimate.append(node.id)
@@ -252,7 +252,22 @@ class Node:
 
         traverse_descendants(self, callback)
 
-        return estimate, full_estimate, nodes_without_estimate
+        return int(estimate), full_estimate, nodes_without_estimate
+
+
+    def cumul_time_for_completion(self):
+        if self.is_leaf():
+            return round(self.cumul_time, 2)
+
+        estimate = 0
+        def callback(node, _):
+            nonlocal estimate
+            if not node.is_leaf(): return
+            estimate += node.cumul_time
+
+        traverse_descendants(self, callback)
+
+        return round(estimate, 2)
 
 
     def start(self):
@@ -414,10 +429,12 @@ class Node:
 
 
     def remove_node(self):
-        for parent in self.parents:
+        parents_copy = self.parents[:]
+        children_copy = self.children[:]
+        for parent in parents_copy:
             parent.try_unlink_child(self)
 
-        for child in self.children:
+        for child in children_copy:
             self.try_unlink_child(child)
 
         if len(self.parents) > 0 or len(self.children) > 0:

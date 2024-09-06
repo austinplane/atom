@@ -25,10 +25,11 @@ def get_node_display(node, show_time=False):
 
     if show_time:
         time, is_complete, nodes_missing = node.est_time_for_completion()
+        cumul_time = node.cumul_time_for_completion()
         if not is_complete:
             time = '?'
 
-        time = Text(f' {time} mins')
+        time = Text(f' Est: {time} mins -- Cumul. time: {cumul_time} mins')
         time.stylize(time_accent)
         id += time
 

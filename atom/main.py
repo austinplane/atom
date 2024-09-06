@@ -156,6 +156,10 @@ def add(name: str):
     result = b.try_link_child(node)
     if not result:
         print(f"Could not add node {name}")
+        return
+    
+    node.mark_state(None)
+    tree()
 
 
 @app.command()
@@ -174,7 +178,9 @@ def remove(id: int):
         typer.echo(f"Node {id} does not exist.")
         return
 
+    node.mark_state(datetime.now())
     node.remove_node()
+    tree()
 
 
 @app.command()
@@ -613,6 +619,9 @@ def load(path: Annotated[str, typer.Option(help='Path for save file.')] = None):
 
 @app.command()
 def archive(id: Annotated[int, typer.Option(help='ID of node to archive.')] = None):
+    """
+    Archive the node given by id (or the currently checkout out node).
+    """
     global state
     a = state['archive']
     if not a:
@@ -646,6 +655,9 @@ def archive(id: Annotated[int, typer.Option(help='ID of node to archive.')] = No
 
 @app.command()
 def unarchive(id: int):
+    """
+    Unarchive the node given by id.
+    """
     global state
     a = state['archive']
     if not a:
@@ -673,6 +685,9 @@ def unarchive(id: int):
 
 @app.command()
 def show_archive():
+    """
+    Show the root of all currently archived trees.
+    """
     global state
     a = state['archive']
     if not a:
